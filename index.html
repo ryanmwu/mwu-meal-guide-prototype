@@ -103,7 +103,7 @@ body{font-family:'AlaskaBeta',-apple-system,sans-serif;background:var(--sage-lig
 
 /* Meal slots */
 .meal-slot{border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;background:#fff;}
-.meal-slot.filled{border-color:var(--sage);background:var(--sage-light);}
+.meal-slot.filled{border-color:var(--border);background:#fff;}
 .meal-slot.empty{border-style:dashed;}
 .slot-thumb{width:48px;height:48px;border-radius:10px;background:var(--bg-warm);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
 .slot-info{flex:1;}
@@ -111,6 +111,11 @@ body{font-family:'AlaskaBeta',-apple-system,sans-serif;background:var(--sage-lig
 .slot-name{font-size:15px;font-weight:500;color:var(--text);margin-top:2px;}
 .slot-meta{font-size:13px;color:var(--muted);}
 .slot-remove{background:none;border:none;font-size:16px;color:var(--light);cursor:pointer;padding:4px;}
+.slot-drag{display:flex;flex-direction:column;gap:4px;padding:6px 2px 6px 8px;cursor:grab;flex-shrink:0;}
+.slot-drag span{display:block;width:18px;height:2px;background:var(--muted);border-radius:2px;}
+.meal-slot.drag-over{border-color:var(--sage);border-style:solid;background:#f0f1e8;}
+.meal-slot.dragging{opacity:0.4;}
+.meal-slot.dragging *{pointer-events:none;}
 
 /* Text input */
 .field-lbl{font-size:11px;font-weight:500;color:var(--light);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
@@ -425,7 +430,7 @@ body{font-family:'AlaskaBeta',-apple-system,sans-serif;background:var(--sage-lig
 <div class="screen" id="s-meal-guide-cat">
   <div class="sb"><span>9:41</span></div>
   <div class="nh">
-    <button class="back-btn" onclick="goBack()"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 8.5l8 7.5"/></svg></button>
+    <button class="back-btn" onclick="go('s-meals-home')"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 8.5l8 7.5"/></svg></button>
     <span class="nh-title">Meal Guide</span>
     <span style="width:36px;"></span>
   </div>
@@ -788,29 +793,29 @@ body{font-family:'AlaskaBeta',-apple-system,sans-serif;background:var(--sage-lig
     <div class="title">When do you want<br>to start?</div>
     <div class="subtitle">Choose how to apply your new meal guide to your schedule.</div>
 
-    <div class="apply-opt sel" onclick="selApply(this)">
+    <div class="apply-opt sel" data-type="save-later" onclick="selApply(this)">
       <div class="apply-icon">🔖</div>
       <div class="apply-info"><div class="apply-name">Save for later</div><div class="apply-desc">Keep in My Meal Guides, apply when ready</div></div>
       <div class="opt-check">✓</div>
     </div>
-    <div class="apply-opt" onclick="selApply(this)">
+    <div class="apply-opt" data-type="apply" onclick="selApply(this)">
       <div class="apply-icon">📅</div>
       <div class="apply-info"><div class="apply-name">Today only</div><div class="apply-desc">Apply to today's meals only</div></div>
       <div class="opt-check">✓</div>
     </div>
-    <div class="apply-opt" onclick="selApply(this)">
+    <div class="apply-opt" data-type="apply" onclick="selApply(this)">
       <div class="apply-icon">🗓️</div>
       <div class="apply-info"><div class="apply-name">This week</div><div class="apply-desc">Apply to all remaining days this week</div></div>
       <div class="opt-check">✓</div>
     </div>
-    <div class="apply-opt" onclick="selApply(this)">
+    <div class="apply-opt" data-type="apply" onclick="selApply(this)">
       <div class="apply-icon">♾️</div>
       <div class="apply-info"><div class="apply-name">All weeks</div><div class="apply-desc">Set as your ongoing meal plan</div></div>
       <div class="opt-check">✓</div>
     </div>
   </div>
   <div class="cta-footer">
-    <button class="btn btn-primary" onclick="go('s-success')">APPLY MEAL GUIDE</button>
+    <button class="btn btn-primary" onclick="doApply()">APPLY MEAL GUIDE</button>
   </div>
 </div>
 
@@ -894,7 +899,7 @@ body{font-family:'AlaskaBeta',-apple-system,sans-serif;background:var(--sage-lig
 <div class="screen" id="s-my-guides-list">
   <div class="sb"><span>9:41</span></div>
   <div class="nh">
-    <button class="back-btn" onclick="goBack()"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 8.5l8 7.5"/></svg></button>
+    <button class="back-btn" onclick="go('s-meal-guide-cat')"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 8.5l8 7.5"/></svg></button>
     <span class="nh-title">My Meal Guides</span>
     <span style="width:32px;"></span>
   </div>
@@ -936,6 +941,7 @@ let guideName       = '';
 let savedGuides        = [];   // [{name, meals:[...]}]  max 3
 let currentGuideIndex  = 0;
 let currentCategory    = 'Breakfast';
+let guideApplied       = false; // true only when user picks Today/Week/All weeks
 
 const RECIPES_BY_CAT = {
   'Breakfast': [
@@ -1052,7 +1058,7 @@ const SHUFFLE_SVG = `<svg width="18" height="14" viewBox="0 0 18 14" fill="none"
 const CHECK_SVG   = `<svg width="12" height="10" viewBox="0 0 12 10" fill="none"><polyline points="1 5 4.5 8.5 11 1" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function renderMealsHome() {
-  if(!savedGuides.length) return;
+  if(!savedGuides.length || !guideApplied) return;
   const latestGuide = savedGuides[savedGuides.length-1];
   selected = latestGuide.meals;
   const list = document.getElementById('ml-list');
@@ -1064,7 +1070,7 @@ function renderMealsHome() {
         <div class="ml-name">${r.name}</div>
         <div class="ml-macro">CAL:${r.cal} &nbsp;P:${r.p} &nbsp;F:${r.f} &nbsp;C:${r.c}</div>
       </div>
-      <div class="ml-check${i < 2 ? ' checked' : ''}">${i < 2 ? CHECK_SVG : ''}</div>
+      <div class="ml-check"></div>
     </div>`).join('');
 }
 
@@ -1169,6 +1175,8 @@ function renderBuilder() {
     const div=document.createElement('div');
     if(r){
       div.className='meal-slot filled';
+      div.draggable=true;
+      div.dataset.idx=i;
       div.innerHTML=`
         <div class="slot-thumb" style="background:${r.bg};">${r.emoji}</div>
         <div class="slot-info">
@@ -1176,7 +1184,8 @@ function renderBuilder() {
           <div class="slot-name">${r.name}</div>
           <div class="slot-meta">CAL:${r.cal} &nbsp;P:${r.p}g &nbsp;F:${r.f}g</div>
         </div>
-        <button class="slot-remove" onclick="removeSlot(${i})">✕</button>`;
+        <button class="slot-remove" onclick="removeSlot(${i})">✕</button>
+        <div class="slot-drag"><span></span><span></span><span></span></div>`;
     } else {
       div.className='meal-slot empty';
       div.style.cursor='pointer';
@@ -1193,8 +1202,73 @@ function renderBuilder() {
     slots.appendChild(div);
   }
   document.getElementById('builder-save-btn').disabled=selected.length===0;
+  initSlotDrag();
 }
 function removeSlot(i){ selected.splice(i,1); renderBuilder(); syncPills(); }
+
+// ── Drag-to-reorder (mouse + touch) ──────────────────────────
+let dragSrcIdx = null;
+
+function initSlotDrag() {
+  const filledSlots = document.querySelectorAll('#builder-slots .meal-slot.filled');
+
+  filledSlots.forEach(el => {
+    const idx = parseInt(el.dataset.idx);
+
+    // ── Mouse drag ──
+    el.addEventListener('dragstart', e => {
+      dragSrcIdx = idx;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(idx));
+      setTimeout(() => el.classList.add('dragging'), 0);
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.meal-slot').forEach(s => s.classList.remove('drag-over'));
+    });
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.meal-slot').forEach(s => s.classList.remove('drag-over'));
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', e => {
+      if(!el.contains(e.relatedTarget)) el.classList.remove('drag-over');
+    });
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove('drag-over');
+      const targetIdx = parseInt(el.dataset.idx);
+      if(dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+        const moved = selected.splice(dragSrcIdx, 1)[0];
+        selected.splice(targetIdx, 0, moved);
+        dragSrcIdx = null;
+        renderBuilder(); syncPills();
+      }
+    });
+
+    // ── Touch drag ──
+    let touchStartY, touchSrcIdx;
+    el.addEventListener('touchstart', e => {
+      touchSrcIdx = idx;
+      touchStartY = e.touches[0].clientY;
+    }, {passive:true});
+    el.addEventListener('touchend', e => {
+      const endY = e.changedTouches[0].clientY;
+      const diff = endY - touchStartY;
+      if(Math.abs(diff) < 40) return;
+      const targetIdx = diff > 0
+        ? Math.min(touchSrcIdx + 1, selected.length - 1)
+        : Math.max(touchSrcIdx - 1, 0);
+      if(targetIdx !== touchSrcIdx) {
+        const moved = selected.splice(touchSrcIdx, 1)[0];
+        selected.splice(targetIdx, 0, moved);
+        renderBuilder(); syncPills();
+      }
+    }, {passive:true});
+  });
+}
 
 // ── Add from overview ─────────────────────────────────────────
 function addFromOverview(){
@@ -1236,6 +1310,11 @@ function doSave(){
 }
 
 // ── Apply ─────────────────────────────────────────────────────
+function doApply(){
+  const sel = document.querySelector('.apply-opt.sel');
+  guideApplied = sel && sel.dataset.type === 'apply';
+  go('s-success');
+}
 function selApply(el){
   document.querySelectorAll('.apply-opt').forEach(o=>{ o.classList.remove('sel'); o.querySelector('.opt-check').style.background=''; o.querySelector('.opt-check').style.borderColor=''; o.querySelector('.opt-check').style.color='transparent'; });
   el.classList.add('sel');
